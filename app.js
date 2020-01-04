@@ -1,328 +1,153 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
-const voca = require("voca");
-const log = console.log;
-const admin = require('firebase-admin');
-
-//이 부분은 aws에 적용할 때 json파일을 집어넣지 않아도 사용되도록 선언을 해주었습니다.
-var serviceAccount = {
-      //개인 키를 넣어주면 됩니다.
+"use strict";
+exports.__esModule = true;
+var axios_1 = require("axios");
+var cheerio = require("cheerio");
+var admin = require("firebase-admin");
+//파이어베이스 세팅
+var Setting = /** @class */ (function() {
+  function Setting() {}
+  Setting.setFirestore = function() {
+    //파이어베이스 연동 정보
+    var serviceAccount = {
+////비밀정보
     };
-
-
-// Initialize the app with a service account, granting admin privileges
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-let db = admin.firestore();
-
-const getHtml = async function(url) {
-  try {
-    // return await axios.get("https://www.uos.ac.kr/korNotice/list.do?list_id=FA1");
-    return await axios.get(url);
-  } catch (error) {
-    console.error(error);
-  }
-};
-//li id = "view_content"
-
-const getHtml_deep = async function(url) {
-  try {
-    // return await axios.get("https://www.uos.ac.kr/korNotice/list.do?list_id=FA1");
-    return await axios.get(url);
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-
-//위에 선언한 함수를 실행한다. 이때, 주소는 FA1의 일반공지를 파싱한다
-getHtml("https://www.uos.ac.kr/korNotice/list.do?list_id=FA1")
-  .then(html => {
-    const $ = cheerio.load(html.data);
-    //공지의 li부분을 $bodyList에 담아준다.
-    const $bodyList = $("ul.listType").children("li");
-    //li크기만큼 반복을 시행한다.
-    $bodyList.each(function(i, elem) {
-      //만일 이 함수의 class가 on이 아니라면 위에 배너 공지가 아니므로 크롤링을 수행한다.
-      if($(elem).attr('class') != 'on'){
-        //title 부분을 가져와서 가공한다.
-        var title =  $(elem).find('a').text()
-        title = voca.replaceAll(title, "\t", '')
-        title = voca.replaceAll(title, "\r\n", '')
-        title = voca.trim(title)
-        title = title.substring(5, title.length);
-        //url은 a태그의 onclick을 보면 알 수 있다.
-        var url = $(elem).find('a').attr('onclick')
-
-        url = url.substring(8, url.length - 3);
-
-        //문자열을 '에서 나눠준다.
-        var post_url = url.split("'");
-        var uid = post_url[2];
-
-        url = "https://www.uos.ac.kr/korNotice/view.do?list_id=FA1&seq=" + uid;
-
-        //추가적으로 공지사항 날짜, 부서를 가져오자.
-        const $detail = $(elem).find("li");
-
-        var department;
-        var post_date;
-
-        $detail.each(function(k, elem2) {
-          if(k == 0)
-            department = $(elem2).text();
-          else if(k==1)
-            post_date = $(elem2).text();
-        });
-
-        post_date = post_date.substring(0,4) + post_date.substring(5,7) + post_date.substring(8,10)
-        post_date = Number(post_date);
-
-        getHtml_deep(url).then(html2 => {
-          const m = cheerio.load(html2.data);
-          // log(m.length)
-          // log(m.html());
-          const body = m("ul.listType").children("li");
-
-          var detail;
-          var l = body.length
-          body.each(function(k, elem2) {
-            if(k==l-1)
-              detail = $(elem2).html();
-          });
-
-          var docRef = db.collection('공지사항').doc(uid);
-          docRef.set({
-              "uid": uid,
-              title: title,
-              department: department,
-              type: "일반 공지",
-              post_date: post_date,
-              detailurl: url,
-              detail_content: detail
-          })
-        })
-      }
+    // 파이어베이스
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
     });
-  })
-
-
-
-
-  //위에 선언한 함수를 실행한다. 이때, 주소는 FA1의 일반공지를 파싱한다
-  getHtml("https://www.uos.ac.kr/korNotice/list.do?list_id=FA2")
-    .then(html => {
-      const $ = cheerio.load(html.data);
-      //공지의 li부분을 $bodyList에 담아준다.
-      const $bodyList = $("ul.listType").children("li");
-      //li크기만큼 반복을 시행한다.
-      $bodyList.each(function(i, elem) {
-        //만일 이 함수의 class가 on이 아니라면 위에 배너 공지가 아니므로 크롤링을 수행한다.
-        if($(elem).attr('class') != 'on'){
-          //title 부분을 가져와서 가공한다.
-          var title =  $(elem).find('a').text()
-          title = voca.replaceAll(title, "\t", '')
-          title = voca.replaceAll(title, "\r\n", '')
-          title = voca.trim(title)
-          title = title.substring(4, title.length);
-          //url은 a태그의 onclick을 보면 알 수 있다.
-          var url = $(elem).find('a').attr('onclick')
-
-          url = url.substring(8, url.length - 3);
-
-          //문자열을 '에서 나눠준다.
-          var post_url = url.split("'");
-          var uid = post_url[2];
-
-          url = "https://www.uos.ac.kr/korNotice/view.do?list_id=FA2&seq=" + uid;
-
-          //추가적으로 공지사항 날짜, 부서를 가져오자.
-          const $detail = $(elem).find("li");
-
-          var department;
-          var post_date;
-
-          $detail.each(function(k, elem2) {
-            if(k == 0)
-              department = $(elem2).text();
-            else if(k==1)
-              post_date = $(elem2).text();
+    return admin.firestore();
+  };
+  return Setting;
+}());
+var _db = Setting.setFirestore();
+//크롤링
+var GetUosHtml = /** @class */ (function() {
+  function GetUosHtml(db) {
+    this.db = db;
+  }
+  GetUosHtml.getNormalHtml = function(_db, _urlId) {
+    var _title;
+    var _url;
+    var _department;
+    var _post_date;
+    var _desc;
+    var notif;
+    var titleList = [];
+    var urlList = [];
+    var depList = [];
+    var dateList = [];
+    var descList = [];
+    try {
+      axios_1["default"].get("https://www.uos.ac.kr/korNotice/list.do?list_id=" + _urlId)
+        .then(function(html) {
+          var $ = cheerio.load(html.data, {
+            decodeEntities: false
           });
-
-          post_date = post_date.substring(0,4) + post_date.substring(5,7) + post_date.substring(8,10)
-          post_date = Number(post_date);
-
-          getHtml_deep(url).then(html2 => {
-            const m = cheerio.load(html2.data);
-            const body = m("ul.listType").children("li");
-
-            var detail;
-            var l = body.length
-            body.each(function(k, elem2) {
-              if(k== l -1)
-                detail = $(elem2).html();
-            });
-            var docRef = db.collection('공지사항').doc(uid);
-            docRef.set({
-                uid: uid,
-                title: title,
-                department: department,
-                type: "학사 공지",
-                post_date: post_date,
-                detailurl: url,
-                detail_content: detail
-            })
-          })
-        }
-      });
-    })
-
-
-    //위에 선언한 함수를 실행한다. 이때, 주소는 FA1의 일반공지를 파싱한다
-    getHtml("https://www.uos.ac.kr/korNotice/list.do?list_id=FA34")
-      .then(html => {
-        const $ = cheerio.load(html.data);
-        //공지의 li부분을 $bodyList에 담아준다.
-        const $bodyList = $("ul.listType").children("li");
-        //li크기만큼 반복을 시행한다.
-        $bodyList.each(function(i, elem) {
-          //만일 이 함수의 class가 on이 아니라면 위에 배너 공지가 아니므로 크롤링을 수행한다.
-          if($(elem).attr('class') != 'on'){
-            //title 부분을 가져와서 가공한다.
-            var title =  $(elem).find('a').text()
-            title = voca.replaceAll(title, "\t", '')
-            title = voca.replaceAll(title, "\r\n", '')
-            title = voca.trim(title)
-            title = title.substring(4, title.length);
-            //url은 a태그의 onclick을 보면 알 수 있다.
-            var url = $(elem).find('a').attr('onclick')
-
-            url = url.substring(8, url.length - 3);
-
-            //문자열을 '에서 나눠준다.
-            var post_url = url.split("'");
-            var uid = post_url[2];
-
-            url = "https://www.uos.ac.kr/korNotice/view.do?list_id=FA34&seq=" + uid;
-
-            //추가적으로 공지사항 날짜, 부서를 가져오자.
-            const $detail = $(elem).find("li");
-
-            var department;
-            var post_date;
-
-            $detail.each(function(k, elem2) {
-              if(k == 0)
-                department = $(elem2).text();
-              else if(k==1)
-                post_date = $(elem2).text();
-            });
-
-            post_date = post_date.substring(0,4) + post_date.substring(5,7) + post_date.substring(8,10)
-            post_date = Number(post_date);
-
-            getHtml_deep(url).then(html2 => {
-              const m = cheerio.load(html2.data);
-              // log(m.length)
-              // log(m.html());
-              const body = m("ul.listType").children("li");
-
-              var detail;
-
-              var l = body.length
-
-              body.each(function(k, elem2) {
-                if(k==l-1)
-                  detail = $(elem2).html();
+          var $bodyList = $("ul.listType").children("li");
+          $bodyList.each(function(i, elem) {
+            var _a;
+            console.log(i);
+            if ($(elem).attr("class") !== "on") {
+              var titleIncludeNum = $(elem)
+                .find("a")
+                .text()
+                .trim();
+              //제목
+              _title = titleIncludeNum.substring(3, titleIncludeNum.length);
+              var jsValue = $(elem)
+                .find("a")
+                .attr("onclick");
+              var _urlNum = (_a = jsValue) === null || _a === void 0 ? void 0 : _a.split("'")[3];
+              //주소(링크)
+              _url =
+                "https://www.uos.ac.kr/korNotice/view.do?list_id=" +
+                _urlId +
+                "&seq=" +
+                _urlNum +
+                "&epTicket=LOG";
+              //날짜, 부서
+              var $detail = $(elem).find("li");
+              $detail.each(function(k, elem2) {
+                if (k === 0) {
+                  //부서
+                  _department = $(elem2).text();
+                } else if (k === 1) {
+                  var _date = $(elem2).text();
+                  //날짜
+                  _post_date = Number(_date.substring(0, 4) +
+                    _date.substring(5, 7) +
+                    _date.substring(8, 10));
+                }
               });
-
-              var docRef = db.collection('공지사항').doc(uid);
-              docRef.set({
-                  uid: uid,
-                  title: title,
-                  department: department,
-                  type: "직원채용",
-                  post_date: post_date,
-                  detailurl: url,
-                  detail_content: detail
-              })
-            })
-          }
-        });
-      })
-
-
-
-  //위에 선언한 함수를 실행한다. 이때, 주소는 FA35의 창업공지를 파싱한다
-  getHtml("https://www.uos.ac.kr/korNotice/list.do?list_id=FA35")
-    .then(html => {
-      const $ = cheerio.load(html.data);
-      //공지의 li부분을 $bodyList에 담아준다.
-      const $bodyList = $("ul.listType").children("li");
-      //li크기만큼 반복을 시행한다.
-      $bodyList.each(function(i, elem) {
-        //만일 이 함수의 class가 on이 아니라면 위에 배너 공지가 아니므로 크롤링을 수행한다.
-        if($(elem).attr('class') != 'on'){
-          //title 부분을 가져와서 가공한다.
-          var title =  $(elem).find('a').text()
-          title = voca.replaceAll(title, "\t", '')
-          title = voca.replaceAll(title, "\r\n", '')
-          title = voca.trim(title)
-          //url은 a태그의 onclick을 보면 알 수 있다.
-          var url = $(elem).find('a').attr('onclick')
-
-          url = url.substring(8, url.length - 3);
-
-          //문자열을 '에서 나눠준다.
-          var post_url = url.split("'");
-          var uid = post_url[2];
-
-          url = "https://www.uos.ac.kr/korNotice/view.do?list_id=FA35&seq=" + uid;
-
-          //추가적으로 공지사항 날짜, 부서를 가져오자.
-          const $detail = $(elem).find("li");
-
-          var department = "창업지원단";
-          var post_date;
-
-          $detail.each(function(k, elem2) {
-            if($(elem2).text().length == 10)
-              post_date = $(elem2).text();
+            }
+            if (_title !== undefined && _url !== undefined) {
+              //TODO : AXIOS 결과값 await로 처리해서 모델 안에 다 넣어서 return 하기
+              titleList.push(_title);
+              depList.push(_department);
+              urlList.push(_url);
+              dateList.push(_post_date);
+              axios_1["default"].get(_url)
+                .then(function(html2) {
+                  var m = cheerio.load(html2.data, {
+                    decodeEntities: false
+                  });
+                  var body = m("#contents > ul").children("li");
+                  body.each(function(k, elem2) {
+                    var _a;
+                    if (k === body.length - 1) {
+                      //내용
+                      _desc = (_a = $(elem2)
+                        .html()) === null || _a === void 0 ? void 0 : _a.trim();
+                      descList.push(_desc);
+                      // if (_title !== undefined && _url !== undefined) {
+                      //   //TODO : desc 안나오는 문제 해결 + 리스트에 목록 넘겨서 다음 then에서 데이터베이스로 저장
+                      //   notif = {
+                      //     title: _title,
+                      //     url: _url,
+                      //     department: _department,
+                      //     post_date: _post_date,
+                      //     desc: undefined
+                      //   };
+                      // }
+                    }
+                  });
+                  var result = [];
+                  if(descList.length == titleList.length){
+                    for (var i = 0; i < titleList.length; i++) {
+                      if(i != 0){
+                        if(dateList[i] != dateList[i-1])
+                          break;
+                      }
+                      var notif = {
+                        title: titleList[i],
+                        department: "창업지원단",
+                        post_date: dateList[i],
+                        url: urlList[i],
+                        desc: descList[i]
+                      };
+                      result.push(notif);
+                    }
+                  }
+                  return result;
+                })["catch"](function(err) {
+                  return console.log("공지사항 내용을 가져오는데 에러 발생 : " + err);
+                })
+                .then(function(result) {
+                  // console.log("hi");
+                  console.log(result);
+                });
+            }
           });
 
-          post_date = post_date.substring(0,4) + post_date.substring(5,7) + post_date.substring(8,10)
-          post_date = Number(post_date);
-
-          title = title.substring(3, title.length);
-
-          getHtml_deep(url).then(html2 => {
-            const m = cheerio.load(html2.data);
-            // log(m.length)
-            // log(m.html());
-            const body = m("ul.listType").children("li");
-
-            var detail;
-            var l = body.length
-
-
-            body.each(function(k, elem2) {
-              if(k==l-1)
-                detail = $(elem2).html();
-            });
-
-            var docRef = db.collection('공지사항').doc(uid);
-            docRef.set({
-                uid: uid,
-                title: title,
-                department: department,
-                type: "창업 공지",
-                post_date: post_date,
-                detailurl: url,
-                detail_content: detail
-            })
-          })
-        }
-      });
-    })
+          return notif;
+        })["catch"](function(err) {
+          return console.log("uos 페이지 접근 에러 : " + err);
+        });
+    } catch (err) {
+      console.log("uos 페이지 접근에서 에러 발생 : " + err);
+    }
+  };
+  return GetUosHtml;
+}());
+//실행 부분
+console.log(GetUosHtml.getNormalHtml(_db, "FA35"))
